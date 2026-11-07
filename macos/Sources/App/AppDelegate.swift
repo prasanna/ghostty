@@ -127,6 +127,12 @@ class AppDelegate: NSObject,
     /// The global undo manager for app-level state such as window restoration.
     lazy var undoManager = ExpiringUndoManager()
 
+    /// The "Windows & Tabs" manager panel, created on first use.
+    private lazy var windowManagerController = WindowManagerController(ghostty)
+
+    /// Window => Find Tab, created in code (see setupWindowManagerMenuItems).
+    private var menuFindTab: NSMenuItem?
+
     /// The current state of the quick terminal.
     private var quickTerminalControllerState: QuickTerminalState = .uninitialized
 
@@ -242,6 +248,10 @@ class AppDelegate: NSObject,
         if UserDefaults.ghostty.bool(forKey: "SecureInput") != SecureInput.shared.enabled {
             toggleSecureInput(self)
         }
+
+        // Menu items created in code must exist before the initial config
+        // load so their shortcuts get synced.
+        setupWindowManagerMenuItems()
 
         // Initial config loading
         ghosttyConfigDidChange(config: ghostty.config)
@@ -1061,6 +1071,13 @@ class AppDelegate: NSObject,
         AboutController.shared.show()
     }
 
+    @IBAction func showWindowManager(_ sender: Any?) {
+        // The tab context menu passes the right-clicked tab so we can
+        // highlight it in the manager.
+        let tab = (sender as? NSMenuItem)?.representedObject as? NSWindow
+        windowManagerController.show(highlighting: tab)
+    }
+
     @IBAction func showHelp(_ sender: Any) {
         guard let url = URL(string: "https://ghostty.org/docs") else { return }
         NSWorkspace.shared.open(url)
@@ -1187,6 +1204,40 @@ extension AppDelegate {
         dockMenu.addItem(newTab)
     }
 
+    /// Adds "Find Tab…" and "Manage Windows and Tabs…" to the Window menu,
+    /// just above "Bring All to Front". This is done in code rather than the
+    /// xib so the items stay next to the system-managed window list.
+    private func setupWindowManagerMenuItems() {
+        guard let menu = NSApp.windowsMenu else { return }
+
+        // Sent to the key terminal window via the responder chain.
+        let findItem = NSMenuItem(
+            title: "Find Tab…",
+            action: #selector(BaseTerminalController.toggleTabFinder(_:)),
+            keyEquivalent: "")
+        findItem.setImageIfDesired(systemSymbolName: "magnifyingglass")
+        self.menuFindTab = findItem
+
+        let manageItem = NSMenuItem(
+            title: "Manage Windows and Tabs…",
+            action: #selector(showWindowManager(_:)),
+            keyEquivalent: "")
+        manageItem.target = self
+        manageItem.setImageIfDesired(systemSymbolName: "rectangle.stack")
+
+        let items = [findItem, manageItem, .separator()]
+        if let index = menu.items.firstIndex(where: {
+            $0.action == #selector(NSApplication.arrangeInFront(_:))
+        }) {
+            for (offset, item) in items.enumerated() {
+                menu.insertItem(item, at: index + offset)
+            }
+        } else {
+            menu.addItem(.separator())
+            items.dropLast().forEach { menu.addItem($0) }
+        }
+    }
+
     /// Setup all the images for our menu items.
     private func setupMenuImages() {
         // Note: This COULD Be done all in the xib file, but I find it easier to
@@ -1290,6 +1341,7 @@ extension AppDelegate {
         syncMenuShortcut(config, action: "toggle_window_float_on_top", menuItem: self.menuFloatOnTop)
         syncMenuShortcut(config, action: "inspector:toggle", menuItem: self.menuTerminalInspector)
         syncMenuShortcut(config, action: "toggle_command_palette", menuItem: self.menuCommandPalette)
+        syncMenuShortcut(config, action: "toggle_tab_finder", menuItem: self.menuFindTab)
 
         syncMenuShortcut(config, action: "toggle_secure_input", menuItem: self.menuSecureInput)
 

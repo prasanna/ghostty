@@ -7143,6 +7143,13 @@ pub const Keybinds = struct {
 
         // Mac-specific keyboard bindings.
         if (comptime builtin.target.os.tag.isDarwin()) {
+            // Find a tab by name, like Xcode's "Open Quickly"
+            try self.set.put(
+                alloc,
+                .{ .key = .{ .unicode = 'o' }, .mods = .{ .super = true, .shift = true } },
+                .toggle_tab_finder,
+            );
+
             try self.set.put(
                 alloc,
                 .{ .key = .{ .unicode = 'q' }, .mods = .{ .super = true } },

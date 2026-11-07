@@ -33,6 +33,9 @@ protocol TerminalViewModel: ObservableObject {
     /// The command palette state.
     var commandPaletteIsShowing: Bool { get set }
 
+    /// The tab finder state.
+    var tabFinderIsShowing: Bool { get set }
+
     /// The update overlay should be visible.
     var updateOverlayIsVisible: Bool { get }
 }
@@ -115,6 +118,11 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         updateViewModel: (NSApp.delegate as? AppDelegate)?.updateViewModel) { action in
                         self.delegate?.performAction(action, on: surfaceView)
                     }
+
+                    TabFinderView(
+                        surfaceView: surfaceView,
+                        isPresented: $viewModel.tabFinderIsShowing,
+                        ghosttyConfig: ghostty.config)
                 }
 
                 // Show update information above all else.

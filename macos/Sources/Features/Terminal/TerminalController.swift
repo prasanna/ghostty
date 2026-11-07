@@ -61,6 +61,23 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// The notification cancellable for focused surface property changes.
     private var surfaceAppearanceCancellables: Set<AnyCancellable> = []
 
+    /// A user-assigned name for the window (native tab group) this tab
+    /// belongs to. Native tab groups have no storage of their own, so every
+    /// tab in a group carries the same name. This is managed by the
+    /// window manager (see `WindowManagerModel`) and shown as the window
+    /// subtitle.
+    var windowName: String? {
+        didSet {
+            guard windowName != oldValue else { return }
+            syncWindowName()
+            invalidateRestorableState()
+        }
+    }
+
+    private func syncWindowName() {
+        window?.subtitle = windowName ?? ""
+    }
+
     init(_ ghostty: Ghostty.App,
          withBaseConfig base: Ghostty.SurfaceConfiguration? = nil,
          withSurfaceTree tree: SplitTree<Ghostty.SurfaceView>? = nil,
@@ -445,6 +462,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         let controller = TerminalController.init(ghostty, withBaseConfig: baseConfig)
         controller.isBackgroundOpaque = parentController.isBackgroundOpaque
         guard let window = controller.window else { return controller }
+
+        // New tabs join the parent's window, so they share its name.
+        if window.tabbingMode != .disallowed {
+            controller.windowName = parentController.windowName
+        }
 
         // If the parent is miniaturized, then macOS exhibits really strange behaviors
         // so we have to bring it back out.

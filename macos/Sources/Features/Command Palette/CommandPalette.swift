@@ -61,6 +61,16 @@ struct CommandPaletteView: View {
     @Binding var isPresented: Bool
     var backgroundColor: Color = Color(nsColor: .windowBackgroundColor)
     var options: [CommandOption]
+
+    /// Placeholder text for the query field.
+    var placeholder: String = "Execute a command…"
+
+    /// The maximum width of the palette.
+    var maxWidth: CGFloat = 500
+
+    /// Use a smaller query field and less padding, for small popups like
+    /// the tab finder.
+    var compact: Bool = false
     @State private var rawQuery = ""
     @State private var selectedIndex: UInt?
     @State private var hoveredOptionID: UUID?
@@ -97,7 +107,7 @@ struct CommandPaletteView: View {
         }
 
         VStack(alignment: .leading, spacing: 0) {
-            CommandPaletteQuery(query: $rawQuery) { event in
+            CommandPaletteQuery(query: $rawQuery, placeholder: placeholder, compact: compact) { event in
                 switch event {
                 case .exit:
                     isPresented = false
@@ -151,7 +161,7 @@ struct CommandPaletteView: View {
                     option.action()
                 }
         }
-        .frame(maxWidth: 500)
+        .frame(maxWidth: maxWidth)
         .background(
             ZStack {
                 Rectangle()
@@ -167,8 +177,8 @@ struct CommandPaletteView: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color(nsColor: .tertiaryLabelColor).opacity(0.75))
         )
-        .shadow(radius: 32, x: 0, y: 12)
-        .padding()
+        .shadow(radius: compact ? 12 : 32, x: 0, y: compact ? 4 : 12)
+        .padding(compact ? 8 : 16)
         .environment(\.colorScheme, scheme)
         .onChange(of: isPresented) { newValue in
             if !newValue {
@@ -185,11 +195,20 @@ struct CommandPaletteView: View {
 /// The text field for building the query for the command palette.
 private struct CommandPaletteQuery: View {
     @Binding var query: String
+    var placeholder: String
+    var compact: Bool
     var onEvent: ((KeyboardEvent) -> Void)?
     @FocusState private var isTextFieldFocused: Bool
 
-    init(query: Binding<String>, onEvent: ((KeyboardEvent) -> Void)? = nil) {
+    init(
+        query: Binding<String>,
+        placeholder: String = "Execute a command…",
+        compact: Bool = false,
+        onEvent: ((KeyboardEvent) -> Void)? = nil
+    ) {
         _query = query
+        self.placeholder = placeholder
+        self.compact = compact
         self.onEvent = onEvent
     }
 
@@ -219,10 +238,10 @@ private struct CommandPaletteQuery: View {
             .frame(width: 0, height: 0)
             .accessibilityHidden(true)
 
-            TextField("Execute a command…", text: $query)
-                .padding()
-                .font(.system(size: 20, weight: .light))
-                .frame(height: 48)
+            TextField(placeholder, text: $query)
+                .padding(.horizontal, compact ? 10 : 16)
+                .font(.system(size: compact ? 14 : 20, weight: .light))
+                .frame(height: compact ? 32 : 48)
                 .textFieldStyle(.plain)
                 .focused($isTextFieldFocused)
                 .onChange(of: isTextFieldFocused) { focused in

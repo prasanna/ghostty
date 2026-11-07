@@ -764,6 +764,7 @@ private struct TabColorIndicatorView: View {
 extension TerminalWindow {
     private static let closeTabsOnRightMenuItemIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.closeTabsOnTheRightMenuItem")
     private static let changeTitleMenuItemIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.changeTitleMenuItem")
+    private static let manageWindowsMenuItemIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.manageWindowsMenuItem")
     private static let tabColorSeparatorIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.tabColorSeparator")
 
     private static let tabColorPaletteIdentifier = NSUserInterfaceItemIdentifier("com.mitchellh.ghostty.tabColorPalette")
@@ -795,6 +796,20 @@ extension TerminalWindow {
                 menuItem.action == NSSelectorFromString("performCloseOtherTabs:") {
                 menuItem.setImageIfDesired(systemSymbolName: "xmark")
             }
+        }
+
+        // Manage Windows and Tabs...
+        menu.removeItems(withIdentifiers: [Self.manageWindowsMenuItemIdentifier])
+        let manageItem = NSMenuItem(
+            title: "Manage Windows and Tabs…",
+            action: #selector(AppDelegate.showWindowManager(_:)),
+            keyEquivalent: "")
+        manageItem.identifier = Self.manageWindowsMenuItemIdentifier
+        manageItem.target = NSApp.delegate
+        manageItem.representedObject = targetController?.window
+        manageItem.setImageIfDesired(systemSymbolName: "rectangle.stack")
+        if menu.insertItem(manageItem, after: NSSelectorFromString("moveTabToNewWindow:")) == nil {
+            menu.addItem(manageItem)
         }
 
         appendTabModifierSection(to: menu, target: targetController)

@@ -56,6 +56,9 @@ class BaseTerminalController: NSWindowController,
     /// This can be set to show/hide the command palette.
     @Published var commandPaletteIsShowing: Bool = false
 
+    /// This can be set to show/hide the tab finder.
+    @Published var tabFinderIsShowing: Bool = false
+
     /// Set if the terminal view should show the update overlay.
     @Published var updateOverlayIsVisible: Bool = false
 
@@ -173,6 +176,11 @@ class BaseTerminalController: NSWindowController,
             self,
             selector: #selector(ghosttyCommandPaletteDidToggle(_:)),
             name: .ghosttyCommandPaletteDidToggle,
+            object: nil)
+        center.addObserver(
+            self,
+            selector: #selector(ghosttyTabFinderDidToggle(_:)),
+            name: .ghosttyTabFinderDidToggle,
             object: nil)
         center.addObserver(
             self,
@@ -646,6 +654,12 @@ class BaseTerminalController: NSWindowController,
         guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
         guard surfaceTree.contains(surfaceView) else { return }
         toggleCommandPalette(nil)
+    }
+
+    @objc private func ghosttyTabFinderDidToggle(_ notification: Notification) {
+        guard let surfaceView = notification.object as? Ghostty.SurfaceView else { return }
+        guard surfaceTree.contains(surfaceView) else { return }
+        toggleTabFinder(nil)
     }
 
     @objc private func ghosttyMaximizeDidToggle(_ notification: Notification) {
@@ -1426,9 +1440,22 @@ class BaseTerminalController: NSWindowController,
         ghostty.changeFontSize(surface: surface, .reset)
     }
 
+    @IBAction func toggleTabFinder(_ sender: Any?) {
+        tabFinderIsShowing.toggle()
+        if tabFinderIsShowing {
+            // Only one popup at a time.
+            commandPaletteIsShowing = false
+
+            // See toggleCommandPalette for why we resign here.
+            _ = focusedSurface?.resignFirstResponder()
+        }
+    }
+
     @IBAction func toggleCommandPalette(_ sender: Any?) {
         commandPaletteIsShowing.toggle()
         if commandPaletteIsShowing {
+            tabFinderIsShowing = false
+
             // Fix the incorrect focus when toggling from InlineTitleEditor
             // When toggling the command palette from the inline title editor,
             // the first responder state of the surface is changed quickly from true to false.
