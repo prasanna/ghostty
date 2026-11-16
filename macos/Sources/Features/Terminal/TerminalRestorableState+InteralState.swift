@@ -17,7 +17,7 @@ extension TerminalRestorableState {
         let titleOverride: String?
 
         // Optional and defaulted so older encoded states still decode.
-        var windowName: String? = nil
+        var windowName: String?
     }
 }
 
