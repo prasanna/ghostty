@@ -232,6 +232,20 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         }
     }
 
+    /// Tabs in the order they were last focused, most recent first.
+    private static var focusHistory: [Weak<TerminalController>] = []
+
+    /// Terminal controllers ordered by when they were last focused, most
+    /// recent first. Tabs that have never been focused aren't included.
+    static var recentlyFocused: [TerminalController] {
+        focusHistory.compactMap(\.value)
+    }
+
+    private func recordFocus() {
+        Self.focusHistory.removeAll { $0.value == nil || $0.value === self }
+        Self.focusHistory.insert(Weak(self), at: 0)
+    }
+
     // Keep track of the last point that our window was launched at so that new
     // windows "cascade" over each other and don't just launch directly on top
     // of each other.
@@ -1118,6 +1132,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         super.windowDidLoad()
         guard let window else { return }
 
+        // We list terminal windows in the Window menu ourselves so that tabs
+        // can be grouped under their window (see WindowMenuList).
+        window.isExcludedFromWindowsMenu = true
+
         // I copy this because we may change the source in the future but also because
         // I regularly audit our codebase for "ghostty.config" access because generally
         // you shouldn't use it. Its safe in this case because for a new window we should
@@ -1288,6 +1306,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     override func windowDidBecomeKey(_ notification: Notification) {
         super.windowDidBecomeKey(notification)
+        self.recordFocus()
         self.relabelTabs()
         self.fixTabBar()
     }

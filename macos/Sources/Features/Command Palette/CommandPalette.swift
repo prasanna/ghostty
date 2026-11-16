@@ -21,6 +21,11 @@ struct CommandOption: Identifiable, Hashable {
     let emphasis: Bool
     /// Sort key for stable ordering when titles are equal.
     let sortKey: ObjectIdentifier?
+    /// If set, the query is matched against these strings instead of the
+    /// title, subtitle, and description. A match in an earlier tier always
+    /// ranks above a match in a later one, and within a tier an exact match
+    /// beats a prefix match beats any other match.
+    let searchTiers: [[String]]?
     /// The action to perform when this option is selected.
     let action: () -> Void
 
@@ -34,6 +39,7 @@ struct CommandOption: Identifiable, Hashable {
         badge: String? = nil,
         emphasis: Bool = false,
         sortKey: ObjectIdentifier? = nil,
+        searchTiers: [[String]]? = nil,
         action: @escaping () -> Void
     ) {
         self.title = title
@@ -45,6 +51,7 @@ struct CommandOption: Identifiable, Hashable {
         self.badge = badge
         self.emphasis = emphasis
         self.sortKey = sortKey
+        self.searchTiers = searchTiers
         self.action = action
     }
 
@@ -61,6 +68,14 @@ struct CommandPaletteView: View {
     @Binding var isPresented: Bool
     var backgroundColor: Color = Color(nsColor: .windowBackgroundColor)
     var options: [CommandOption]
+
+    /// The options to show before the user has typed anything. If nil,
+    /// `options` is shown.
+    var emptyQueryOptions: [CommandOption]?
+
+    /// Keep an option selected at all times, starting with the first, so
+    /// that pressing return right away picks it.
+    var selectsFirstOption: Bool = false
 
     /// Placeholder text for the query field.
     var placeholder: String = "Execute a command…"
@@ -84,7 +99,7 @@ struct CommandPaletteView: View {
     // leadingColor > title > subtitle > description.
     var filteredOptions: [CommandOption] {
         if query.isEmpty {
-            return options
+            return emptyQueryOptions ?? options
         } else {
             return options.filteredAndSorted(query: query)
         }
@@ -143,11 +158,16 @@ struct CommandPaletteView: View {
                     if selectedIndex == nil {
                         selectedIndex = 0
                     }
+                } else if selectsFirstOption {
+                    selectedIndex = 0
                 } else {
                     if let selectedIndex, selectedIndex == 0 {
                         self.selectedIndex = nil
                     }
                 }
+            }
+            .onAppear {
+                if selectsFirstOption { selectedIndex = 0 }
             }
 
             Divider()
@@ -498,13 +518,16 @@ struct CommandOptionMatch {
     /// query, from 0 (no match) to 1 (exact).
     let colorScore: Double
     /// Which text field matched, ranked: title (3), subtitle (2),
-    /// description (1), none (0).
+    /// description (1), none (0). For options with `searchTiers`, see
+    /// `tieredScore`.
     let textScore: Int
 
     /// Returns nil if the option doesn't match the query at all.
     init?(option: CommandOption, query: String) {
         let colorScore = Self.colorMatchScore(for: option.leadingColor, query: query)
-        let textScore: Int = if option.title.matchedIndices(for: query) != nil {
+        let textScore: Int = if let tiers = option.searchTiers {
+            Self.tieredScore(tiers, query: query)
+        } else if option.title.matchedIndices(for: query) != nil {
             3
         } else if option.subtitle?.matchedIndices(for: query) != nil {
             2
@@ -518,6 +541,21 @@ struct CommandOptionMatch {
         self.option = option
         self.colorScore = colorScore
         self.textScore = textScore
+    }
+
+    /// Scores the best match across tiers: each tier outranks all the ones
+    /// after it, and within a tier exact (3) > prefix (2) > other (1).
+    /// Zero if nothing matches.
+    static func tieredScore(_ tiers: [[String]], query: String) -> Int {
+        for (index, tier) in tiers.enumerated() {
+            let quality = tier.map { text -> Int in
+                if text.compare(query, options: .caseInsensitive) == .orderedSame { return 3 }
+                if text.range(of: query, options: [.caseInsensitive, .anchored]) != nil { return 2 }
+                return text.matchedIndices(for: query) != nil ? 1 : 0
+            }.max() ?? 0
+            if quality > 0 { return (tiers.count - index) * 10 + quality }
+        }
+        return 0
     }
 
     /// Returns a score (0.0 to 1.0) indicating how well a color matches a search query color name.

@@ -133,6 +133,9 @@ class AppDelegate: NSObject,
     /// Window => Find Tab, created in code (see setupWindowManagerMenuItems).
     private var menuFindTab: NSMenuItem?
 
+    /// Lists terminal windows and their tabs in the Window menu.
+    private let windowMenuList = WindowMenuList()
+
     /// The current state of the quick terminal.
     private var quickTerminalControllerState: QuickTerminalState = .uninitialized
 
@@ -1209,6 +1212,7 @@ extension AppDelegate {
     /// xib so the items stay next to the system-managed window list.
     private func setupWindowManagerMenuItems() {
         guard let menu = NSApp.windowsMenu else { return }
+        windowMenuList.install(in: menu)
 
         // Sent to the key terminal window via the responder chain.
         let findItem = NSMenuItem(
